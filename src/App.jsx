@@ -20,6 +20,8 @@ const FloydWarshallSimulator = () => {
   const [sequentialTime, setSequentialTime] = useState(0);
   const [parallelTime, setParallelTime] = useState(0);
   const [speedupHistory, setSpeedupHistory] = useState([]);
+  const [showMatrixInput, setShowMatrixInput] = useState(false);
+  const [matrixInput, setMatrixInput] = useState('');
   const animationRef = useRef(null);
   const threadAnimationRef = useRef(null);
 
@@ -47,6 +49,66 @@ const FloydWarshallSimulator = () => {
     setSequentialTime(0);
     setParallelTime(0);
     setSpeedupHistory([]);
+    updateMatrixInputString(newGraph);
+  };
+
+  const updateMatrixInputString = (matrix) => {
+    const matrixStr = matrix.map(row => 
+      row.map(val => val === INF ? 'INF' : val).join(' ')
+    ).join('\n');
+    setMatrixInput(matrixStr);
+  };
+
+  const parseMatrixInput = () => {
+    try {
+      const lines = matrixInput.trim().split('\n').filter(line => line.trim());
+      const parsedMatrix = lines.map(line => {
+        const values = line.trim().split(/\s+/);
+        return values.map(val => {
+          const upper = val.toUpperCase();
+          if (upper === 'INF' || upper === '∞') return INF;
+          const num = parseInt(val);
+          if (isNaN(num)) throw new Error(`Invalid value: ${val}`);
+          return num;
+        });
+      });
+
+      if (parsedMatrix.length === 0) {
+        throw new Error('Matrix is empty');
+      }
+
+      const size = parsedMatrix.length;
+      if (!parsedMatrix.every(row => row.length === size)) {
+        throw new Error('Matrix must be square (same number of rows and columns)');
+      }
+
+      if (size < 3 || size > 10) {
+        throw new Error('Matrix size must be between 3x3 and 10x10');
+      }
+
+      for (let i = 0; i < size; i++) {
+        if (parsedMatrix[i][i] !== 0) {
+          throw new Error(`Diagonal elements must be 0 (element [${i}][${i}] is ${parsedMatrix[i][i]})`);
+        }
+      }
+
+      setN(size);
+      setGraph(parsedMatrix);
+      setDistances(parsedMatrix.map(row => [...row]));
+      setK(-1);
+      setIterations(0);
+      setThreads([]);
+      setCompletedThreads([]);
+      setPerformanceData([]);
+      setSequentialTime(0);
+      setParallelTime(0);
+      setSpeedupHistory([]);
+      setShowMatrixInput(false);
+      return true;
+    } catch (error) {
+      alert(`Error parsing matrix: ${error.message}`);
+      return false;
+    }
   };
 
   const processThreadBatch = (allThreads, batchIndex) => {
@@ -286,19 +348,61 @@ const FloydWarshallSimulator = () => {
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={togglePlay}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-lg text-sm"
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg hover:from-emerald-600 hover:to-emerald-700 transition-all shadow-lg text-sm font-semibold"
                 >
                   {isRunning ? <Pause size={18} /> : <Play size={18} />}
                   {isRunning ? 'Pause' : k >= n - 1 ? 'Restart' : 'Start'}
                 </button>
                 <button
                   onClick={reset}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg hover:from-slate-700 hover:to-slate-800 transition-all shadow-lg text-sm"
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-slate-600 to-slate-700 text-white rounded-lg hover:from-slate-700 hover:to-slate-800 transition-all shadow-lg text-sm font-semibold"
                 >
                   <RotateCcw size={18} />
                   Reset
                 </button>
+                <button
+                  onClick={() => setShowMatrixInput(!showMatrixInput)}
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg text-sm font-semibold border-2 border-yellow-300 animate-pulse"
+                >
+                  ✏️ {showMatrixInput ? 'Cancel Input' : 'Input Custom Matrix'}
+                </button>
               </div>
+
+              {showMatrixInput && (
+                <div className="bg-slate-800/50 rounded-lg p-4 space-y-3">
+                  <div>
+                    <label className="text-white text-sm font-medium mb-2 block">
+                      Enter Matrix (use 'INF' or '∞' for infinity, space-separated values, one row per line)
+                    </label>
+                    <textarea
+                      value={matrixInput}
+                      onChange={(e) => setMatrixInput(e.target.value)}
+                      className="w-full h-32 bg-slate-900 text-white rounded-lg p-3 font-mono text-sm border border-slate-600 focus:border-blue-500 focus:outline-none resize-none"
+                      placeholder="Example for 4x4:&#10;0 3 INF 7&#10;8 0 2 INF&#10;5 INF 0 1&#10;2 INF INF 0"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={parseMatrixInput}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-all text-sm font-medium"
+                    >
+                      Apply Matrix
+                    </button>
+                    <button
+                      onClick={() => {
+                        initializeGraph();
+                        setShowMatrixInput(false);
+                      }}
+                      className="px-4 py-2 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-all text-sm font-medium"
+                    >
+                      Generate Random
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-400">
+                    <strong>Tips:</strong> Matrix must be square (3x3 to 10x10). Diagonal must be 0. Use INF for no direct path.
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
