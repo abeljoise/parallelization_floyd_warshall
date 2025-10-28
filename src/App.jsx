@@ -22,13 +22,97 @@ const FloydWarshallSimulator = () => {
   const [speedupHistory, setSpeedupHistory] = useState([]);
   const [showMatrixInput, setShowMatrixInput] = useState(false);
   const [matrixInput, setMatrixInput] = useState('');
+  const [selectedScenario, setSelectedScenario] = useState('random');
+  const [cityNames, setCityNames] = useState([]);
   const animationRef = useRef(null);
   const threadAnimationRef = useRef(null);
 
   const INF = 999;
 
+  const scenarios = {
+    random: {
+      name: 'Random Network',
+      description: 'Randomly generated graph',
+      icon: '🔀',
+      cities: []
+    },
+    cities: {
+      name: 'Flight Routes',
+      description: 'Major city flight connections',
+      icon: '✈️',
+      cities: ['NYC', 'LAX', 'CHI', 'MIA', 'DFW'],
+      matrix: [
+        [0, 5, 2, INF, 3],
+        [5, 0, INF, 4, 2],
+        [2, INF, 0, 3, INF],
+        [INF, 4, 3, 0, 1],
+        [3, 2, INF, 1, 0]
+      ]
+    },
+    traffic: {
+      name: 'City Traffic',
+      description: 'Urban traffic network (minutes)',
+      icon: '🚗',
+      cities: ['Downtown', 'Airport', 'Mall', 'University', 'Harbor', 'Station'],
+      matrix: [
+        [0, 15, 8, INF, 12, 5],
+        [15, 0, INF, 20, INF, 10],
+        [8, INF, 0, 7, INF, 12],
+        [INF, 20, 7, 0, 14, INF],
+        [12, INF, INF, 14, 0, 9],
+        [5, 10, 12, INF, 9, 0]
+      ]
+    },
+    delivery: {
+      name: 'Delivery Network',
+      description: 'Package delivery routes (hours)',
+      icon: '📦',
+      cities: ['Warehouse', 'Store-A', 'Store-B', 'Store-C', 'Hub'],
+      matrix: [
+        [0, 2, 4, INF, 3],
+        [2, 0, 1, 5, INF],
+        [4, 1, 0, 2, 3],
+        [INF, 5, 2, 0, 1],
+        [3, INF, 3, 1, 0]
+      ]
+    },
+    internet: {
+      name: 'Data Centers',
+      description: 'Network latency (ms)',
+      icon: '🌐',
+      cities: ['US-East', 'US-West', 'Europe', 'Asia', 'Australia', 'Africa', 'S.America'],
+      matrix: [
+        [0, 60, 80, 180, 200, 120, 100],
+        [60, 0, 140, 120, 140, 180, 140],
+        [80, 140, 0, 100, 240, 40, 160],
+        [180, 120, 100, 0, 80, 140, 220],
+        [200, 140, 240, 80, 0, 220, 260],
+        [120, 180, 40, 140, 220, 0, 180],
+        [100, 140, 160, 220, 260, 180, 0]
+      ]
+    },
+    social: {
+      name: 'Social Network',
+      description: 'Connection strength (degrees)',
+      icon: '👥',
+      cities: ['Alice', 'Bob', 'Carol', 'Dave', 'Eve', 'Frank'],
+      matrix: [
+        [0, 1, 2, INF, INF, 3],
+        [1, 0, 1, 2, INF, INF],
+        [2, 1, 0, 1, 3, INF],
+        [INF, 2, 1, 0, 1, 2],
+        [INF, INF, 3, 1, 0, 1],
+        [3, INF, INF, 2, 1, 0]
+      ]
+    }
+  };
+
   useEffect(() => {
-    initializeGraph();
+    if (selectedScenario === 'random') {
+      initializeGraph();
+    } else {
+      loadScenario(selectedScenario);
+    }
   }, [n]);
 
   const initializeGraph = () => {
@@ -49,7 +133,28 @@ const FloydWarshallSimulator = () => {
     setSequentialTime(0);
     setParallelTime(0);
     setSpeedupHistory([]);
+    setCityNames([]);
     updateMatrixInputString(newGraph);
+  };
+
+  const loadScenario = (scenarioKey) => {
+    const scenario = scenarios[scenarioKey];
+    if (scenario && scenario.matrix) {
+      const matrix = scenario.matrix;
+      setN(matrix.length);
+      setGraph(matrix);
+      setDistances(matrix.map(row => [...row]));
+      setCityNames(scenario.cities || []);
+      setK(-1);
+      setIterations(0);
+      setThreads([]);
+      setCompletedThreads([]);
+      setPerformanceData([]);
+      setSequentialTime(0);
+      setParallelTime(0);
+      setSpeedupHistory([]);
+      updateMatrixInputString(matrix);
+    }
   };
 
   const updateMatrixInputString = (matrix) => {
@@ -286,8 +391,40 @@ const FloydWarshallSimulator = () => {
             <Zap className="text-yellow-400" size={40} />
             Floyd-Warshall Parallelization Analysis
           </h1>
-          <p className="text-slate-300">Interactive visualization with detailed thread execution and performance metrics</p>
+          <p className="text-slate-300">Real-world shortest path optimization with detailed performance metrics</p>
         </div>
+
+        <Card className="bg-white/10 backdrop-blur border-white/20 mb-4">
+          <CardHeader>
+            <CardTitle className="text-white text-lg">Choose a Real-World Scenario</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              {Object.entries(scenarios).map(([key, scenario]) => (
+                <button
+                  key={key}
+                  onClick={() => {
+                    setSelectedScenario(key);
+                    if (key === 'random') {
+                      initializeGraph();
+                    } else {
+                      loadScenario(key);
+                    }
+                  }}
+                  className={`p-4 rounded-lg transition-all ${
+                    selectedScenario === key
+                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-lg scale-105'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50'
+                  }`}
+                >
+                  <div className="text-3xl mb-2">{scenario.icon}</div>
+                  <div className="font-semibold text-sm">{scenario.name}</div>
+                  <div className="text-xs mt-1 opacity-80">{scenario.description}</div>
+                </button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-4">
           <Card className="bg-white/10 backdrop-blur border-white/20">
@@ -496,7 +633,7 @@ const FloydWarshallSimulator = () => {
                       ></div>
                     </div>
                     <div className="text-xs text-slate-400 mt-1">
-                      {thread.oldDist} → {thread.newDist} via vertex {thread.k}
+                      {cityNames[thread.i] || `Node ${thread.i}`} → {cityNames[thread.j] || `Node ${thread.j}`}: {thread.oldDist} → {thread.newDist} via {cityNames[thread.k] || `vertex ${thread.k}`}
                     </div>
                   </div>
                 ))}
@@ -524,15 +661,19 @@ const FloydWarshallSimulator = () => {
                       <div
                         key={`header-${j}`}
                         className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-white font-bold text-xs"
+                        title={cityNames[j] || `Node ${j}`}
                       >
-                        {j}
+                        {cityNames[j] ? cityNames[j].substring(0, 3) : j}
                       </div>
                     ))}
                     
                     {distances.map((row, i) => (
                       <React.Fragment key={i}>
-                        <div className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-white font-bold text-xs">
-                          {i}
+                        <div 
+                          className="w-10 h-10 bg-slate-700 rounded flex items-center justify-center text-white font-bold text-xs"
+                          title={cityNames[i] || `Node ${i}`}
+                        >
+                          {cityNames[i] ? cityNames[i].substring(0, 3) : i}
                         </div>
                         {row.map((val, j) => (
                           <div
@@ -649,7 +790,8 @@ const FloydWarshallSimulator = () => {
 
         <Alert className="mt-4 bg-blue-500/20 border-blue-400/50">
           <AlertDescription className="text-white text-sm">
-            <strong>How it works:</strong> The Floyd-Warshall algorithm computes shortest paths between all vertex pairs. 
+            <strong>Current Scenario:</strong> {scenarios[selectedScenario].icon} {scenarios[selectedScenario].name} - {scenarios[selectedScenario].description}.
+            {' '}The Floyd-Warshall algorithm computes shortest paths between all pairs of nodes. 
             In parallel mode, computations for each intermediate vertex k are distributed across {numThreads} threads. 
             Watch the thread monitor to see individual operations, and observe the speedup graphs showing performance gains from parallelization!
           </AlertDescription>
